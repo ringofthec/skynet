@@ -234,7 +234,9 @@ bootstrap(struct skynet_context * logger, const char * cmdline) {
 	int sz = strlen(cmdline);
 	char name[sz+1];
 	char args[sz+1];
+	// 启动的命令格式一定是 %s %s 比如 snlua bootstrap 其中 snlua是名字 bootstrap是参数
 	sscanf(cmdline, "%s %s", name, args);
+	
 	struct skynet_context *ctx = skynet_context_new(name, args);
 	if (ctx == NULL) {
 		skynet_error(NULL, "Bootstrap error : %s\n", cmdline);
@@ -252,19 +254,35 @@ skynet_start(struct skynet_config * config) {
 	sigfillset(&sa.sa_mask);
 	sigaction(SIGHUP, &sa, NULL);
 
+	// 如果是守护进程模式，就初始化守护进程
 	if (config->daemon) {
 		if (daemon_init(config->daemon)) {
 			exit(1);
 		}
 	}
+
+	//初始化节点模块，用于集群，转发远程节点的消息
 	skynet_harbor_init(config->harbor);
+
+	//初始化句柄模块，用于给每个Skynet服务创建一个全局唯一的句柄值
 	skynet_handle_init(config->harbor);
+
+	//初始化消息队列模块, 初始化了一个全局消息队列结构
 	skynet_mq_init();
+
+	//初始化模块
 	skynet_module_init(config->module_path);
+
+	//初始化计时器
 	skynet_timer_init();
+
+	//初始化网络
 	skynet_socket_init();
+
+	//是否开启性能统计
 	skynet_profile_enable(config->profile);
 
+	//创建一个日志服务的实例
 	struct skynet_context *ctx = skynet_context_new(config->logservice, config->logger);
 	if (ctx == NULL) {
 		fprintf(stderr, "Can't launch %s service\n", config->logservice);
