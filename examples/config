@@ -4,6 +4,7 @@ include "config.path"
 thread = 8
 logger = nil
 logpath = "."
+logger = "ser.log"
 harbor = 1
 address = "127.0.0.1:2526"
 master = "127.0.0.1:2013"

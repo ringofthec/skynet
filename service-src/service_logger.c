@@ -35,7 +35,9 @@ logger_cb(struct skynet_context * context, void *ud, int type, int session, uint
 	struct logger * inst = ud;
 	switch (type) {
 	case PTYPE_SYSTEM:
+		fprintf(stderr, "i get systemmsg\n");
 		if (inst->filename) {
+			fprintf(stderr, "logger service freopen \n");
 			inst->handle = freopen(inst->filename, "a", inst->handle);
 		}
 		break;
@@ -53,6 +55,7 @@ logger_cb(struct skynet_context * context, void *ud, int type, int session, uint
 int
 logger_init(struct logger * inst, struct skynet_context *ctx, const char * parm) {
 	if (parm) {
+		fprintf(stderr, "logger in file %s\n", parm);
 		inst->handle = fopen(parm,"w");
 		if (inst->handle == NULL) {
 			return 1;
@@ -61,6 +64,7 @@ logger_init(struct logger * inst, struct skynet_context *ctx, const char * parm)
 		strcpy(inst->filename, parm);
 		inst->close = 1;
 	} else {
+		fprintf(stderr, "logger in stdout\n");
 		inst->handle = stdout;
 	}
 	if (inst->handle) {

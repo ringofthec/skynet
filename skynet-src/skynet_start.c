@@ -38,6 +38,7 @@ static int SIG = 0;
 static void
 handle_hup(int signal) {
 	if (signal == SIGHUP) {
+		fprintf(stderr, "I got SIGHUP signle\n");
 		SIG = 1;
 	}
 }
@@ -114,6 +115,7 @@ static void
 signal_hup() {
 	// make log file reopen
 
+	fprintf(stderr, "process signal_hup\n");
 	struct skynet_message smsg;
 	smsg.source = 0;
 	smsg.session = 0;
@@ -121,6 +123,7 @@ signal_hup() {
 	smsg.sz = (size_t)PTYPE_SYSTEM << MESSAGE_TYPE_SHIFT;
 	uint32_t logger = skynet_handle_findname("logger");
 	if (logger) {
+		fprintf(stderr, "111process signal_hup\n");
 		skynet_context_push(logger, &smsg);
 	}
 }

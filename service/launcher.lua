@@ -154,4 +154,5 @@ skynet.dispatch("lua", function(session, address, cmd , ...)
 	end
 end)
 
+print("will start launch")
 skynet.start(function() end)

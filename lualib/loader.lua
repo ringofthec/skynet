@@ -1,7 +1,9 @@
 local args = {}
 for word in string.gmatch(..., "%S+") do
 	table.insert(args, word)
+	print("arg : " .. word)
 end
+print("-------")
 
 SERVICE_NAME = args[1]
 
@@ -39,6 +41,7 @@ else
 	SERVICE_PATH = p
 end
 
+print("i will check lua_preload........")
 if LUA_PRELOAD then
 	local f = assert(loadfile(LUA_PRELOAD))
 	f(table.unpack(args))

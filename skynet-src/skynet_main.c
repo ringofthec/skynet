@@ -59,9 +59,12 @@ _init_env(lua_State *L) {
 			exit(1);
 		}
 		const char * key = lua_tostring(L,-2);
+		fprintf(stderr, "get config %s = ", key);
 		if (lua_type(L,-1) == LUA_TBOOLEAN) {
 			int b = lua_toboolean(L,-1);
 			skynet_setenv(key,b ? "true" : "false" );
+			fprintf(stderr, key,b ? "true" : "false");
+			fprintf(stderr, "\n");
 		} else {
 			const char * value = lua_tostring(L,-1);
 			if (value == NULL) {
@@ -69,6 +72,8 @@ _init_env(lua_State *L) {
 				exit(1);
 			}
 			skynet_setenv(key,value);
+			fprintf(stderr, value);
+			fprintf(stderr, "\n");
 		}
 		lua_pop(L,1);
 	}
