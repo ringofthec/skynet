@@ -122,6 +122,7 @@ static const char * load_config = "\
 
 int
 main(int argc, char *argv[]) {
+	// 获取config配置文件，必须传递一个config文件用来启动
 	const char * config_file = NULL ;
 	if (argc > 1) {
 		config_file = argv[1];
@@ -137,6 +138,7 @@ main(int argc, char *argv[]) {
 
 	sigign();
 
+	/* -------------------- 下面开始读取配置文件中的配置 ----------------------- */
 	struct skynet_config config;
 
 	struct lua_State *L = luaL_newstate();
@@ -152,6 +154,8 @@ main(int argc, char *argv[]) {
 		lua_close(L);
 		return 1;
 	}
+
+	// 把从config文件中读取的诸多信息安装到env里面
 	_init_env(L);
 
 	config.thread =  optint("thread",8);
@@ -164,6 +168,8 @@ main(int argc, char *argv[]) {
 	config.profile = optboolean("profile", 1);
 
 	lua_close(L);
+	/* ------------------------------------------- */
+	
 
 	skynet_start(&config);
 	skynet_globalexit();
