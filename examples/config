@@ -1,18 +1,64 @@
+
+-- include 是在 skynet_main.c 中实现如下的函数
+--[[
+    local function include(filename)
+		local last_path = current_path
+		local path, name = filename:match([[(.*]]..sep..[[)(.*)$]])
+		if path then
+			if path:sub(1,1) == sep then	-- root
+				current_path = path
+			else
+				current_path = current_path .. path
+			end
+		else
+			name = filename
+		end
+		local f = assert(io.open(current_path .. name))
+		local code = assert(f:read [[*a]])
+		code = string.gsub(code, [[%$([%w_%d]+)]], getenv)
+		f:close()
+		assert(load(code,[[@]]..filename,[[t]],result))()
+		current_path = last_path
+	end
+]]
+
 include "config.path"
 include "mytest/myconf.conf"
 include "myconf2.conf"
 
 -- preload = "./examples/preload.lua"	-- run preload.lua before every lua service run
+
+-- 启动的线程数量
 thread = 8
+
+-- 日志模块
 logger = nil
+
+-- 日志路径
 logpath = "."
+
+-- 日志名字
 logger = "ser.log"
+
+-- 节点ID
 harbor = 1
+
+-- 地址
 address = "127.0.0.1:2526"
+
+-- master地址
 master = "127.0.0.1:2013"
+
+-- 主脚本
 start = "main"	-- main script
+
+-- 启动服务
 bootstrap = "snlua bootstrap"	-- The service for bootstrap
+
+-- ？
 standalone = "0.0.0.0:2013"
 -- snax_interface_g = "snax_g"
+
+-- so模块路径
 cpath = root.."cservice/?.so"
 -- daemon = "./skynet.pid"
