@@ -3,13 +3,15 @@
 
 struct skynet_context;
 
+// 一个module必须实现四大回调
+// 创建，初始化，释放，信号处理
 typedef void * (*skynet_dl_create)(void);
 typedef int (*skynet_dl_init)(void * inst, struct skynet_context *, const char * parm);
 typedef void (*skynet_dl_release)(void * inst);
 typedef void (*skynet_dl_signal)(void * inst, int signal);
 
 struct skynet_module {
-	const char * name;
+	const char * name; // 一个模块的名字 
 	void * module;
 	skynet_dl_create create;
 	skynet_dl_init init;

@@ -12,25 +12,30 @@
 #define MAX_SLOT_SIZE 0x40000000
 
 struct handle_name {
-	char * name;
-	uint32_t handle;
+	char * name;      // 句柄可读名字
+	uint32_t handle;  // 句柄id
 };
 
 struct handle_storage {
 	struct rwlock lock;
 
-	uint32_t harbor;
-	uint32_t handle_index;
+	uint32_t harbor; // harborid 注意里面是已经将id移动到高8位后的id 值形如 0fXX 00 00 00 
+
+	uint32_t handle_index; // 每新增一个服务，这里就增加1，它是不会减少的，永远都是增加的
+
 	int slot_size;
-	struct skynet_context ** slot;
+	struct skynet_context ** slot; // 全部服务
 	
 	int name_cap;
 	int name_count;
 	struct handle_name *name;
 };
 
+// 全局唯一的服务器管理结构
 static struct handle_storage *H = NULL;
 
+
+// 注册服务，返回一个handle
 uint32_t
 skynet_handle_register(struct skynet_context *ctx) {
 	struct handle_storage *s = H;
@@ -40,6 +45,8 @@ skynet_handle_register(struct skynet_context *ctx) {
 	for (;;) {
 		int i;
 		for (i=0;i<s->slot_size;i++) {
+			// #define HANDLE_MASK 0xff ff ff 
+			// handle 低24位为真正的handleid，高8位是harbor
 			uint32_t handle = (i+s->handle_index) & HANDLE_MASK;
 			int hash = handle & (s->slot_size-1);
 			if (s->slot[hash] == NULL) {
@@ -48,10 +55,13 @@ skynet_handle_register(struct skynet_context *ctx) {
 
 				rwlock_wunlock(&s->lock);
 
+				// 返回handle的时候，高8位补偿上harbor
 				handle |= s->harbor;
 				return handle;
 			}
 		}
+
+		// 下面说明槽位不够用了, 2倍扩展法扩展
 		assert((s->slot_size*2 - 1) <= HANDLE_MASK);
 		struct skynet_context ** new_slot = skynet_malloc(s->slot_size * 2 * sizeof(struct skynet_context *));
 		memset(new_slot, 0, s->slot_size * 2 * sizeof(struct skynet_context *));
@@ -66,6 +76,7 @@ skynet_handle_register(struct skynet_context *ctx) {
 	}
 }
 
+// 退出一个服务
 int
 skynet_handle_retire(uint32_t handle) {
 	int ret = 0;
@@ -105,6 +116,7 @@ skynet_handle_retire(uint32_t handle) {
 	return ret;
 }
 
+// 退出全部服务
 void 
 skynet_handle_retireall() {
 	struct handle_storage *s = H;
@@ -129,6 +141,7 @@ skynet_handle_retireall() {
 	}
 }
 
+// 按handle抓取一个服务
 struct skynet_context * 
 skynet_handle_grab(uint32_t handle) {
 	struct handle_storage *s = H;
@@ -228,6 +241,7 @@ _insert_name(struct handle_storage *s, const char * name, uint32_t handle) {
 	return result;
 }
 
+// 检查一个服务名字是否可用
 const char * 
 skynet_handle_namehandle(uint32_t handle, const char *name) {
 	rwlock_wlock(&H->lock);
@@ -239,6 +253,8 @@ skynet_handle_namehandle(uint32_t handle, const char *name) {
 	return ret;
 }
 
+
+// 初始化服务器管理数据结构
 void 
 skynet_handle_init(int harbor) {
 	assert(H==NULL);
@@ -249,6 +265,8 @@ skynet_handle_init(int harbor) {
 
 	rwlock_init(&s->lock);
 	// reserve 0 for system
+	// #define HANDLE_REMOTE_SHIFT 24
+	// 也就是说 节点id是站在int的高8位的
 	s->harbor = (uint32_t) (harbor & 0xff) << HANDLE_REMOTE_SHIFT;
 	s->handle_index = 1;
 	s->name_cap = 2;

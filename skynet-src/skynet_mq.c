@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <stdbool.h>
 
+// 一个消息队列默认的消息存储能力
 #define DEFAULT_QUEUE_SIZE 64
 #define MAX_GLOBAL_MQ 0x10000
 
@@ -16,22 +17,26 @@
 // 1 means mq is in global mq , or the message is dispatching.
 
 #define MQ_IN_GLOBAL 1
+
+// 消息队列过载限制，如果一个消息队列中的消息超过这个值，说明这个消息队列过载了
 #define MQ_OVERLOAD 1024
 
 struct message_queue {
 	struct spinlock lock;
-	uint32_t handle;
+	uint32_t handle; // 所属的服务
 	int cap;
 	int head;
 	int tail;
 	int release;
-	int in_global;
-	int overload;
-	int overload_threshold;
-	struct skynet_message *queue;
-	struct message_queue *next;
+	int in_global; // 是否在全局队列中 1表示在队列中
+	int overload; // 过载
+	int overload_threshold; // 过载阈值
+	struct skynet_message *queue; // 消息列表
+	struct message_queue *next; // 队列链表
 };
 
+
+// 全局队列，其实应该说是一个队列的队列
 struct global_queue {
 	struct message_queue *head;
 	struct message_queue *tail;
@@ -85,7 +90,7 @@ skynet_mq_create(uint32_t handle) {
 	// When the queue is create (always between service create and service init) ,
 	// set in_global flag to avoid push it to global queue .
 	// If the service init success, skynet_context_new will call skynet_mq_push to push it to global queue.
-	q->in_global = MQ_IN_GLOBAL;
+	q->in_global = MQ_IN_GLOBAL; // 消息创建的时候，总是访问全局消息队列中
 	q->release = 0;
 	q->overload = 0;
 	q->overload_threshold = MQ_OVERLOAD;

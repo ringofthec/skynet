@@ -133,6 +133,8 @@ void
 skynet_module_insert(struct skynet_module *mod) {
 	SPIN_LOCK(M)
 
+	fprintf(stderr,"skynet_module_insert %s\n", mod->name);
+
 	struct skynet_module * m = _query(mod->name);
 	assert(m == NULL && M->count < MAX_MODULE_TYPE);
 	int index = M->count;

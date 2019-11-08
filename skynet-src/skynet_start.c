@@ -152,6 +152,7 @@ thread_timer(void *p) {
 	return NULL;
 }
 
+// 消息处理线程
 static void *
 thread_worker(void *p) {
 	struct worker_parm *wp = p;
@@ -248,6 +249,7 @@ bootstrap(struct skynet_context * logger, const char * cmdline) {
 	}
 }
 
+// 主启动函数
 void 
 skynet_start(struct skynet_config * config) {
 	// register SIGHUP for log file reopen

@@ -1,27 +1,4 @@
 
--- include 是在 skynet_main.c 中实现如下的函数
---[[
-    local function include(filename)
-		local last_path = current_path
-		local path, name = filename:match([[(.*]]..sep..[[)(.*)$]])
-		if path then
-			if path:sub(1,1) == sep then	-- root
-				current_path = path
-			else
-				current_path = current_path .. path
-			end
-		else
-			name = filename
-		end
-		local f = assert(io.open(current_path .. name))
-		local code = assert(f:read [[*a]])
-		code = string.gsub(code, [[%$([%w_%d]+)]], getenv)
-		f:close()
-		assert(load(code,[[@]]..filename,[[t]],result))()
-		current_path = last_path
-	end
-]]
-
 include "config.path"
 include "mytest/myconf.conf"
 include "myconf2.conf"
@@ -60,5 +37,7 @@ standalone = "0.0.0.0:2013"
 -- snax_interface_g = "snax_g"
 
 -- so模块路径
+-- C 里面 所谓的 config.module_path 就是 cpath
+
 cpath = root.."cservice/?.so"
 -- daemon = "./skynet.pid"

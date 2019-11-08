@@ -95,11 +95,14 @@ static const char * load_config = "\
 	local sep = package.config:sub(1,1)\n\
 	local current_path = [[.]]..sep\n\
 	local function include(filename)\n\
-        print(\"will include = \" .. filename) \n\
-        print(\"current_path = \" .. current_path) \n\
+        	print(\"will include = \" .. filename .. \", current_path = \" .. current_path) \n\
+		\n\
 		local last_path = current_path\n\
 		local path, name = filename:match([[(.*]]..sep..[[)(.*)$]])\n\
-        print(\"path = \" .. tostring(path) .. \", name = \" .. tostring(name)) \n\
+		\n\
+		print(\"path = \" .. tostring(path) .. \", name = \" .. tostring(name)) \n\
+		\n\
+		\n\
 		if path then\n\
 			if path:sub(1,1) == sep then	-- root\n\
 				current_path = path\n\
@@ -109,24 +112,28 @@ static const char * load_config = "\
 		else\n\
 			name = filename\n\
 		end\n\
-        \n\
-        //---- 打开include的文件并读取\n\
+		\n\
+		\n\
+		-- 打开include的文件并读取\n\
 		local f = assert(io.open(current_path .. name))\n\
 		local code = assert(f:read [[*a]])\n\
-        \n\
-        //---- 对include文件中的系统环境变量字符串进行退换\n\
+		\n\
+		\n\
+		-- 对include文件中的系统环境变量字符串进行退换\n\
 		code = string.gsub(code, [[%$([%w_%d]+)]], getenv)\n\
 		f:close()\n\
-        \n\
-        //---- load 代码\n\
-        // load (chunk [, chunkname [, mode [, env]]]) \n\
-        //  chunk是代码字符串，chunkname是预留调试信息，mode 是 t 表示chunk是字符串 b 表示代码是编译后的二进制， env是值得load后chunk的环境 \n\
-        //  注意load本身只是把代码加载进虚拟机，并不执行代码，所以最后要来一个()执行这些代码 \n\
+		\n\
+		\n\
+		-- load 代码\n\
+		-- load (chunk [, chunkname [, mode [, env]]]) \n\
+		-- chunk是代码字符串，chunkname是预留调试信息，mode 是 t 表示chunk是字符串 b 表示代码是编译后的二进制， env是值得load后chunk的环境 \n\
+		-- 注意load本身只是把代码加载进虚拟机，并不执行代码，所以最后要来一个()执行这些代码 \n\
+		\n\
+		\n\
 		assert(load(code,[[@]]..filename,[[t]],result))()\n\
 		current_path = last_path\n\
 	end\n\
 	setmetatable(result, { __index = { include = include } })\n\
-	// config_name = ... 这里解释一下，一个字符串的lua被加载到虚拟机里面最终的产出是funcion，并且是一个带变长参数的函数，所以这里的...就是调用这个chunk的参数   \n\
 	local config_name = ...\n\
 	include(config_name)\n\
 	setmetatable(result, nil)\n\
@@ -169,6 +176,7 @@ main(int argc, char *argv[]) {
 	}
 
 	// 把从config文件中读取的诸多信息安装到env里面
+	// 从临时的L把conf都导到全局二代evn L里面
 	_init_env(L);
 
 	config.thread =  optint("thread",8);

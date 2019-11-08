@@ -40,17 +40,18 @@
 
 #endif
 
+// 一个服务的描述
 struct skynet_context {
 	void * instance;
 	struct skynet_module * mod;
 	void * cb_ud;
 	skynet_cb cb;
-	struct message_queue *queue;
+	struct message_queue *queue;  // 服务的消息队列
 	FILE * logfile;
 	uint64_t cpu_cost;	// in microsec
 	uint64_t cpu_start;	// in microsec
 	char result[32];
-	uint32_t handle;
+	uint32_t handle;   // 服务的handle
 	int session_id;
 	int ref;
 	int message_count;
@@ -112,6 +113,10 @@ struct drop_t {
 	uint32_t handle;
 };
 
+// 释放一个消息队列的时候，回调函数
+// 释放一个消息队列的时候，必然存在消息队列里面还是有很多没有处理的消息这种情况
+// 那么这个时候不能简单的丢弃这些消息，而要通知消息的发送方这件事
+// 通知也是通过发消息给发送方来实现的
 static void
 drop_message(struct skynet_message *msg, void *ud) {
 	struct drop_t *d = ud;
@@ -257,6 +262,9 @@ skynet_isremote(struct skynet_context * ctx, uint32_t handle, int * harbor) {
 	return ret;
 }
 
+// 服务ctx 处理消息 msg
+// 具体的说就是调用 ctx 的消息处理回调函数 ctx->cb
+// 细节 ctx->cb() 的返回值如果是false，那么不用保持消息了，需要释放该消息
 static void
 dispatch_message(struct skynet_context *ctx, struct skynet_message *msg) {
 	assert(ctx->init);
@@ -293,6 +301,7 @@ skynet_context_dispatchall(struct skynet_context * ctx) {
 	}
 }
 
+// 消息分发，
 struct message_queue * 
 skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue *q, int weight) {
 	if (q == NULL) {
@@ -301,10 +310,13 @@ skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue 
 			return NULL;
 	}
 
+	// 根据消息队列获取所属的服务器的handle
 	uint32_t handle = skynet_mq_handle(q);
 
+	// 根据handle获取到服务
 	struct skynet_context * ctx = skynet_handle_grab(handle);
 	if (ctx == NULL) {
+		// 如果不存在对应的服务，那么要对这个消息列表进行释放操作
 		struct drop_t d = { handle };
 		skynet_mq_release(q, drop_message, &d);
 		return skynet_globalmq_pop();
@@ -387,13 +399,16 @@ handle_exit(struct skynet_context * context, uint32_t handle) {
 	skynet_handle_retire(handle);
 }
 
+// skynet 服务的基本命令接口
 // skynet command
 
 struct command_func {
-	const char *name;
-	const char * (*func)(struct skynet_context * context, const char * param);
+	const char *name; // 命令名字
+	const char * (*func)(struct skynet_context * context, const char * param); // 命令回调函数(参数是该服务对象，以及参数)
 };
 
+
+// 超时命令
 static const char *
 cmd_timeout(struct skynet_context * context, const char * param) {
 	char * session_ptr = NULL;
@@ -404,6 +419,7 @@ cmd_timeout(struct skynet_context * context, const char * param) {
 	return context->result;
 }
 
+// 注册命令
 static const char *
 cmd_reg(struct skynet_context * context, const char * param) {
 	if (param == NULL || param[0] == '\0') {
@@ -417,6 +433,7 @@ cmd_reg(struct skynet_context * context, const char * param) {
 	}
 }
 
+// 查询命令
 static const char *
 cmd_query(struct skynet_context * context, const char * param) {
 	if (param[0] == '.') {
@@ -806,7 +823,7 @@ skynet_globalinit(void) {
 
 void 
 skynet_globalexit(void) {
-	pthread_key_delete(G_NODE.handle_key);
+pthread_key_delete(G_NODE.handle_key);
 }
 
 void
