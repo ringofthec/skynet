@@ -40,14 +40,36 @@
 
 #endif
 
+
+/*
+ * 1. 区别一下module 和 context
+ *    module 是模块，对应一个so文件，被skynet_module管理，so被加载并导出4大接口
+ *    context 是服务，服务是在模块中实现的，一个服务是通过对应的module被 create，init，release的
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ * */
+
+
 // 一个服务的描述
 struct skynet_context {
-	void * instance;
-	struct skynet_module * mod;
+	void * instance;     // 服务实例句柄（指针），是由module四大接口中的create创建出来的
+	struct skynet_module * mod;  // 该服务对应的模块
 	void * cb_ud;
-	skynet_cb cb;
+
+	// typedef int (*skynet_cb)(struct skynet_context * context, void *ud, int type, int session, uint32_t source , const void * msg, size_t sz);
+	skynet_cb cb;     // 回调函数指针
+
 	struct message_queue *queue;  // 服务的消息队列
-	FILE * logfile;
+	FILE * logfile;         // 日志文件
 	uint64_t cpu_cost;	// in microsec
 	uint64_t cpu_start;	// in microsec
 	char result[32];
@@ -127,21 +149,26 @@ drop_message(struct skynet_message *msg, void *ud) {
 	skynet_send(NULL, source, msg->source, PTYPE_ERROR, 0, NULL, 0);
 }
 
+// 创建一个服务
 struct skynet_context * 
 skynet_context_new(const char * name, const char *param) {
+	// 查询并加载服务所在的模块
 	struct skynet_module * mod = skynet_module_query(name);
 
 	if (mod == NULL)
 		return NULL;
 
+	// 调用四大接口中的_create来创建服务的实例
 	void *inst = skynet_module_instance_create(mod);
 	if (inst == NULL)
 		return NULL;
+
+	// 构造服务实例数据结构
 	struct skynet_context * ctx = skynet_malloc(sizeof(*ctx));
 	CHECKCALLING_INIT(ctx)
 
-	ctx->mod = mod;
-	ctx->instance = inst;
+	ctx->mod = mod; // 模块
+	ctx->instance = inst; // 实例
 	ctx->ref = 2;
 	ctx->cb = NULL;
 	ctx->cb_ud = NULL;
@@ -158,24 +185,28 @@ skynet_context_new(const char * name, const char *param) {
 	// Should set to 0 first to avoid skynet_handle_retireall get an uninitialized handle
 	ctx->handle = 0;	
 	ctx->handle = skynet_handle_register(ctx);
+
+	// 创建该服务的消息队列
 	struct message_queue * queue = ctx->queue = skynet_mq_create(ctx->handle);
 	// init function maybe use ctx->handle, so it must init at last
 	context_inc();
 
 	CHECKCALLING_BEGIN(ctx)
+	// 调用四大接口中的_init来完成服务的初始化
 	int r = skynet_module_instance_init(mod, inst, ctx, param);
 	CHECKCALLING_END(ctx)
 	if (r == 0) {
 		struct skynet_context * ret = skynet_context_release(ctx);
 		if (ret) {
 			ctx->init = true;
-		}
-		skynet_globalmq_push(queue);
-		if (ret) {
 			skynet_error(ret, "LAUNCH %s %s", name, param ? param : "");
 		}
+
+		// 把服务的消息队列放入全局队列里面
+		skynet_globalmq_push(queue);
 		return ret;
 	} else {
+		// 初始化服务失败了，这里要做扫除工作
 		skynet_error(ctx, "FAILED launch %s", name);
 		uint32_t handle = ctx->handle;
 		skynet_context_release(ctx);
@@ -186,6 +217,7 @@ skynet_context_new(const char * name, const char *param) {
 	}
 }
 
+// session_id增加一下
 int
 skynet_context_newsession(struct skynet_context *ctx) {
 	// session always be a positive number
@@ -197,6 +229,7 @@ skynet_context_newsession(struct skynet_context *ctx) {
 	return session;
 }
 
+// 当服务被使用时，要管理引用计数加1
 void 
 skynet_context_grab(struct skynet_context *ctx) {
 	ATOM_INC(&ctx->ref);
@@ -210,18 +243,25 @@ skynet_context_reserve(struct skynet_context *ctx) {
 	context_dec();
 }
 
+// 删除一个服务
 static void 
 delete_context(struct skynet_context *ctx) {
+	// 关闭服务日志
 	if (ctx->logfile) {
 		fclose(ctx->logfile);
 	}
+
+	// 调用四大接口中的_release
 	skynet_module_instance_release(ctx->mod, ctx->instance);
+
+	// 标记消息队列释放
 	skynet_mq_mark_release(ctx->queue);
 	CHECKCALLING_DESTROY(ctx)
 	skynet_free(ctx);
 	context_dec();
 }
 
+// 释放服务，这里涉及到引用计数变化，如果引用计数下降到0那么就删除这个服务
 struct skynet_context * 
 skynet_context_release(struct skynet_context *ctx) {
 	if (ATOM_DEC(&ctx->ref) == 0) {
@@ -231,6 +271,7 @@ skynet_context_release(struct skynet_context *ctx) {
 	return ctx;
 }
 
+// 把一个消息压入服务消息队列中
 int
 skynet_context_push(uint32_t handle, struct skynet_message *message) {
 	struct skynet_context * ctx = skynet_handle_grab(handle);
@@ -243,6 +284,8 @@ skynet_context_push(uint32_t handle, struct skynet_message *message) {
 	return 0;
 }
 
+// 无止境的，永久的
+// 看上去是创建一个永久的服务，然而好像并没有什么卵用
 void 
 skynet_context_endless(uint32_t handle) {
 	struct skynet_context * ctx = skynet_handle_grab(handle);
@@ -253,6 +296,7 @@ skynet_context_endless(uint32_t handle) {
 	skynet_context_release(ctx);
 }
 
+// 获取一个服务的harbor id
 int 
 skynet_isremote(struct skynet_context * ctx, uint32_t handle, int * harbor) {
 	int ret = skynet_harbor_message_isremote(handle);
@@ -265,13 +309,17 @@ skynet_isremote(struct skynet_context * ctx, uint32_t handle, int * harbor) {
 // 服务ctx 处理消息 msg
 // 具体的说就是调用 ctx 的消息处理回调函数 ctx->cb
 // 细节 ctx->cb() 的返回值如果是false，那么不用保持消息了，需要释放该消息
+// 消息回调函数是在skynet_callback中安装的，需要具体的服务直接设置，一般是在四大回调的_init里面调用
 static void
 dispatch_message(struct skynet_context *ctx, struct skynet_message *msg) {
 	assert(ctx->init);
 	CHECKCALLING_BEGIN(ctx)
 	pthread_setspecific(G_NODE.handle_key, (void *)(uintptr_t)(ctx->handle));
+
+	// 解析消息的类型和长度
 	int type = msg->sz >> MESSAGE_TYPE_SHIFT;
 	size_t sz = msg->sz & MESSAGE_TYPE_MASK;
+
 	if (ctx->logfile) {
 		skynet_log_output(ctx->logfile, msg->source, type, msg->session, msg->data, sz);
 	}
@@ -291,6 +339,7 @@ dispatch_message(struct skynet_context *ctx, struct skynet_message *msg) {
 	CHECKCALLING_END(ctx)
 }
 
+// 快速处理消息队列中的全部消息
 void 
 skynet_context_dispatchall(struct skynet_context * ctx) {
 	// for skynet_error
@@ -301,9 +350,10 @@ skynet_context_dispatchall(struct skynet_context * ctx) {
 	}
 }
 
-// 消息分发，
+// 消息分发, 这个在skyet_start中是很多worker线程来执行的
 struct message_queue * 
 skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue *q, int weight) {
+	// 传入q为空的话，那么从global_queue中取出下一个mq
 	if (q == NULL) {
 		q = skynet_globalmq_pop();
 		if (q==NULL)
@@ -326,13 +376,24 @@ skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue 
 	struct skynet_message msg;
 
 	for (i=0;i<n;i++) {
+
+		// 从mq中尝试获取一个message
 		if (skynet_mq_pop(q,&msg)) {
+			// mq空了
 			skynet_context_release(ctx);
+
+			// 从global_queue中获取下一个mq
 			return skynet_globalmq_pop();
 		} else if (i==0 && weight >= 0) {
+			// 如果weight <  0 那么就是一次循环一个包
+			// 如果weight == 0 那么就是一次循环把当前mq中的包全部处理完
+			// 如果weight > 0  那么就是一次循环处理 mq中包的个数 / 2 ^ 全职 个包
+			// 不同的worker线程的weight不同
 			n = skynet_mq_length(q);
 			n >>= weight;
 		}
+
+		// 如果发现过载了，就日志一下
 		int overload = skynet_mq_overload(q);
 		if (overload) {
 			skynet_error(ctx, "May overload, message queue length = %d", overload);
@@ -340,6 +401,7 @@ skynet_context_message_dispatch(struct skynet_monitor *sm, struct message_queue 
 
 		skynet_monitor_trigger(sm, msg.source , handle);
 
+		// 真正的向服务分派消息
 		if (ctx->cb == NULL) {
 			skynet_free(msg.data);
 		} else {
@@ -791,6 +853,7 @@ skynet_context_handle(struct skynet_context *ctx) {
 	return ctx->handle;
 }
 
+// 重要，设置message回调的回调函数，和用户自定义数据
 void 
 skynet_callback(struct skynet_context * context, void *ud, skynet_cb cb) {
 	context->cb = cb;

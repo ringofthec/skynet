@@ -68,6 +68,7 @@ logger_init(struct logger * inst, struct skynet_context *ctx, const char * parm)
 		inst->handle = stdout;
 	}
 	if (inst->handle) {
+		// 在这里设置消息回调函数
 		skynet_callback(ctx, inst, logger_cb);
 		skynet_command(ctx, "REG", ".logger");
 		return 0;

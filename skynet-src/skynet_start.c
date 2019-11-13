@@ -224,6 +224,7 @@ start(int thread) {
 			wp[i].weight = 0;
 		}
 		create_thread(&pid[i+3], thread_worker, &wp[i]);
+		fprintf(stderr, "thread %d weight %d\n", i+3, wp[i].weight);
 	}
 
 	for (i=0;i<thread+3;i++) {

@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// 最多添加32个模块
+// 其实这个限制没意义，也没卵用
 #define MAX_MODULE_TYPE 32
 
 struct modules {
@@ -21,6 +23,7 @@ struct modules {
 
 static struct modules * M = NULL;
 
+// 打开moudle，本质上就是加载 so 动态库
 static void *
 _try_open(struct modules *m, const char * name) {
 	const char *l;
@@ -62,6 +65,7 @@ _try_open(struct modules *m, const char * name) {
 	return dl;
 }
 
+// 按名字查找模块
 static struct skynet_module * 
 _query(const char * name) {
 	int i;
@@ -75,22 +79,39 @@ _query(const char * name) {
 
 static void *
 get_api(struct skynet_module *mod, const char *api_name) {
+
+	// 这就是C语言无语的地方，就是个简单的字符串拼接和判断，这里需要写这么长的代码
+	// 这很手动挡
 	size_t name_size = strlen(mod->name);
 	size_t api_size = strlen(api_name);
 	char tmp[name_size + api_size + 1];
 	memcpy(tmp, mod->name, name_size);
 	memcpy(tmp+name_size, api_name, api_size+1);
+
+	// 细节: 如果是 AAA.BBB_CCC，下面的函数会返回 BBB_CCC
 	char *ptr = strrchr(tmp, '.');
+
+
 	if (ptr == NULL) {
 		ptr = tmp;
+		fprintf(stderr, "tmp=%s\n", tmp);
 	} else {
 		ptr = ptr + 1;
+		fprintf(stderr, "tmp=%s, ptr=%s\n", tmp, ptr);
 	}
+
+	// dlsym(A, F) 是从A中（dlopen的一个so文件，类似windows上面的dll文件）获取一个名为F的函数指针
 	return dlsym(mod->module, ptr);
 }
 
 static int
 open_sym(struct skynet_module *mod) {
+	// 获取4大接口函数
+	// module_create
+	// module_init
+	// module_release
+	// module_signal
+	//
 	mod->create = get_api(mod, "_create");
 	mod->init = get_api(mod, "_init");
 	mod->release = get_api(mod, "_release");
@@ -99,6 +120,9 @@ open_sym(struct skynet_module *mod) {
 	return mod->init == NULL;
 }
 
+// 按名字查找模块
+// 如果模块已经加载了，就返回模块
+// 如果没有加载，就尝试加载模块
 struct skynet_module * 
 skynet_module_query(const char * name) {
 	struct skynet_module * result = _query(name);
@@ -111,11 +135,14 @@ skynet_module_query(const char * name) {
 
 	if (result == NULL && M->count < MAX_MODULE_TYPE) {
 		int index = M->count;
+
+		// 加载模块
 		void * dl = _try_open(M,name);
 		if (dl) {
 			M->m[index].name = name;
 			M->m[index].module = dl;
 
+			// 获取模块4大接口
 			if (open_sym(&M->m[index]) == 0) {
 				M->m[index].name = skynet_strdup(name);
 				M->count ++;
@@ -129,6 +156,9 @@ skynet_module_query(const char * name) {
 	return result;
 }
 
+// 插入一个模块，莫名感觉这个函数很沙雕
+// skynet_module的管理本身就应该是在这个文件中进行，给外部暴露这样一个接口
+// 有个卵儿用
 void 
 skynet_module_insert(struct skynet_module *mod) {
 	SPIN_LOCK(M)
@@ -144,6 +174,8 @@ skynet_module_insert(struct skynet_module *mod) {
 	SPIN_UNLOCK(M)
 }
 
+
+// 四大接口的接口
 void * 
 skynet_module_instance_create(struct skynet_module *m) {
 	if (m->create) {
