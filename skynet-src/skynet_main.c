@@ -92,11 +92,11 @@ int sigign() {
 static const char * load_config = "\
 	local result = {}\n\
 	local function getenv(name) return assert(os.getenv(name), [[os.getenv() failed: ]] .. name) end\n\
-	// package.config 是lua5.3里面的一个系统变量，一共5行，分别是/;?!-, 所以下面这句话就是取的 / \n\
+	-- package.config 是lua5.3里面的一个系统变量，一共5行，分别是/;?!-, 所以下面这句话就是取的 / \n\
 	local sep = package.config:sub(1,1) \n\
 	\n\
+	-- current_path 就是 ./ \n\
 	local current_path = [[.]]..sep\n\
-	// current_path 就是 ./ \n\
 	\n\
 	local function include(filename)\n\
         	print(\"will include = \" .. filename .. \", current_path = \" .. current_path) \n\
