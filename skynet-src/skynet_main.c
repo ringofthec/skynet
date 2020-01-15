@@ -96,31 +96,36 @@ static const char * load_config = "\
 	local sep = package.config:sub(1,1) \n\
 	\n\
 	-- current_path 就是 ./ \n\
-	local current_path = [[.]]..sep\n\
+	local current_path = [[.]]..sep  \n\
 	\n\
-	local function include(filename)\n\
-        	print(\"will include = \" .. filename .. \", current_path = \" .. current_path) \n\
+	local function include(filename)  \n\
+        print(\"will include = \" .. filename .. \", current_path = \" .. current_path) \n\
 		\n\
-		local last_path = current_path\n\
+		\n\
+		local last_path = current_path  \n\
+		-- filename 拆分成 path name 两部分   \n\
 		local path, name = filename:match([[(.*]]..sep..[[)(.*)$]])\n\
+		\n\
 		\n\
 		print(\"path = \" .. tostring(path) .. \", name = \" .. tostring(name)) \n\
 		\n\
 		\n\
-		if path then\n\
-			if path:sub(1,1) == sep then	-- root\n\
-				current_path = path\n\
-			else\n\
-				current_path = current_path .. path\n\
-			end\n\
-		else\n\
-			name = filename\n\
-		end\n\
+		if path then  \n\
+			-- 如果是绝对路径  \n\
+			if path:sub(1,1) == sep then	-- root  \n\
+				current_path = path  \n\
+			else  \n\
+				-- 相对路径  \n\
+				current_path = current_path .. path  \n\
+			end  \n\
+		else  \n\
+			name = filename  \n\
+		end  \n\
 		\n\
 		\n\
 		-- 打开include的文件并读取\n\
-		local f = assert(io.open(current_path .. name))\n\
-		local code = assert(f:read [[*a]])\n\
+		local f = assert(io.open(current_path .. name))  \n\
+		local code = assert(f:read [[*a]])  \n\
 		\n\
 		\n\
 		-- 对include文件中的系统环境变量字符串进行退换\n\
