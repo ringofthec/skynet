@@ -81,6 +81,8 @@ sp_wait(int kfd, struct event *e, int max) {
 	return n;
 }
 
+// 不管咋样，现代socket服务器编程，把socket设置成非阻塞的是一件不可质疑，默认的操作
+// 看到这里我就想吐槽一句，既然这个操作已经是一个一定会做的，为啥不搞成默认的，历史的负担么
 static void
 sp_nonblocking(int fd) {
 	int flag = fcntl(fd, F_GETFL, 0);

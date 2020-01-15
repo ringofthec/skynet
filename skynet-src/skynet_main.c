@@ -130,7 +130,9 @@ static const char * load_config = "\
 		-- 注意load本身只是把代码加载进虚拟机，并不执行代码，所以最后要来一个()执行这些代码 \n\
 		\n\
 		\n\
-		assert(load(code,[[@]]..filename,[[t]],result))()\n\
+		local func_body = load(code, [[@]]..filename, [[t]], result) \n\
+		assert(func_body) \n\
+		func_body() \n\
 		current_path = last_path\n\
 	end\n\
 	setmetatable(result, { __index = { include = include } })\n\
